@@ -494,13 +494,12 @@ struct lh_table* lh_kptr_table_new(int size,
 void lh_table_resize(struct lh_table *t, int new_size)
 {
 	struct lh_table *new_t;
-	struct lh_entry *ent;
 
 	new_t = lh_table_new(new_size, NULL, t->hash_fn, t->equal_fn);
-	ent = t->head;
-	while(ent) {
-		lh_table_insert(new_t, ent->k, ent->v);
-		ent = ent->next;
+	for(int n = 0 ; n < t->size ; ++n) {
+		if(t->table[n].k != LH_EMPTY &&
+		   t->table[n].k != LH_FREED)
+			lh_table_insert(new_t, t->table[n].k, t->table[n].v);
 	}
 	free(t->table);
 	t->table = new_t->table;
@@ -512,10 +511,11 @@ void lh_table_resize(struct lh_table *t, int new_size)
 
 void lh_table_free(struct lh_table *t)
 {
-	struct lh_entry *c;
-	for(c = t->head; c != NULL; c = c->next) {
-		if(t->free_fn) {
-			t->free_fn(c);
+	if(t->free_fn) {
+		for(int n = 0 ; n < t->size ; ++n) {
+			if(t->table[n].k != LH_EMPTY &&
+			   t->table[n].k != LH_FREED)
+				t->free_fn(t->table+n);
 		}
 	}
 	free(t->table);
@@ -527,7 +527,8 @@ int lh_table_insert_w_hash(struct lh_table *t, void *k, const void *v, const uns
 {
 	unsigned long n;
 
-	if(t->count >= t->size * LH_LOAD_FACTOR) lh_table_resize(t, t->size * 2);
+	if(t->count >= t->size * LH_LOAD_FACTOR)
+		lh_table_resize(t, t->size * 2);
 
 	n = h % t->size;
 
