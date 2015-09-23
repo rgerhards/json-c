@@ -24,6 +24,10 @@
 #include "random_seed.h"
 #include "linkhash.h"
 
+/* generic object construction and destruction parts */
+#define MAX_REUSE_TABLE 50
+static struct lh_table *toReuse_table[MAX_REUSE_TABLE]; /* buffer to cache last deleted */
+
 /* hash functions */
 static unsigned long lh_char_hash(const void *k);
 static unsigned long lh_perllike_str_hash(const void *k);
@@ -464,9 +468,20 @@ struct lh_table* lh_table_new(int size,
 			      lh_equal_fn *equal_fn)
 {
 	int i;
-	struct lh_table *t;
+	struct lh_table *t = NULL;
 
-	t = (struct lh_table*)calloc(1, sizeof(struct lh_table));
+	for(i = 0 ; i < MAX_REUSE_TABLE ; ++i) {
+		if(toReuse_table[i] != NULL) { // TODO: NOT thread safe!
+			t = toReuse_table[i];
+			toReuse_table[i] = NULL;
+			memset(t, 0, sizeof(struct lh_table));
+			break;
+		}
+	}
+	if(t == NULL) {
+		t = (struct lh_table*)calloc(1, sizeof(struct lh_table));
+	}
+
 	if(!t) lh_abort("lh_table_new: calloc failed\n");
 	t->count = 0;
 	t->size = size;
@@ -519,6 +534,14 @@ void lh_table_free(struct lh_table *t)
 		}
 	}
 	free(t->table);
+
+	for(int i = 0 ; i < MAX_REUSE_TABLE ; ++i) {
+		if(toReuse_table[i] == NULL) { // TODO: NOT thread safe!
+			toReuse_table[i] = t;
+			return;
+		}
+	}
+	/* cache full */
 	free(t);
 }
 
