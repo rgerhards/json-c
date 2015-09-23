@@ -174,7 +174,7 @@ int json_object_put(struct json_object *jso)
 
 
 /* generic object construction and destruction parts */
-#define MAX_REUSE 50
+#define MAX_REUSE 25
 static json_object *toReuse_object[MAX_REUSE]; /* buffer to cache last deleted */
 
 static void json_object_generic_delete(struct json_object* jso)

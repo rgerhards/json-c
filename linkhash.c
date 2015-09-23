@@ -25,9 +25,9 @@
 #include "linkhash.h"
 
 /* generic object construction and destruction parts */
-#define MAX_REUSE_TABLE 50
+#define MAX_REUSE_TABLE 25
 static struct lh_table *toReuse_table[MAX_REUSE_TABLE]; /* buffer to cache last deleted */
-#define MAX_REUSE_TABLE_ENTRY 50
+#define MAX_REUSE_TABLE_ENTRY 25
 static struct lh_entry *toReuse_table_entry[MAX_REUSE_TABLE_ENTRY]; /* buffer to cache last deleted */
 
 /* hash functions */
@@ -554,7 +554,8 @@ void lh_table_free(struct lh_table *t)
 			}
 		}
 	}
-	free(t->table);
+	if(t->table)
+		free(t->table);
 
 	for(int i = 0 ; i < MAX_REUSE_TABLE ; ++i) {
 		if(toReuse_table[i] == NULL) { // TODO: NOT thread safe!
