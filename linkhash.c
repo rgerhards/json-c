@@ -27,6 +27,8 @@
 /* generic object construction and destruction parts */
 #define MAX_REUSE_TABLE 50
 static struct lh_table *toReuse_table[MAX_REUSE_TABLE]; /* buffer to cache last deleted */
+#define MAX_REUSE_TABLE_ENTRY 50
+static struct lh_entry *toReuse_table_entry[MAX_REUSE_TABLE_ENTRY]; /* buffer to cache last deleted */
 
 /* hash functions */
 static unsigned long lh_char_hash(const void *k);
@@ -485,7 +487,17 @@ struct lh_table* lh_table_new(int size,
 	if(!t) lh_abort("lh_table_new: calloc failed\n");
 	t->count = 0;
 	t->size = size;
-	t->table = (struct lh_entry*)calloc(size, sizeof(struct lh_entry));
+
+	for(i = 0 ; i < MAX_REUSE_TABLE_ENTRY ; ++i) {
+		if(toReuse_table_entry[i] != NULL) { // TODO: NOT thread safe!
+			t->table = toReuse_table_entry[i];
+			toReuse_table_entry[i] = NULL;
+			memset(t->table, 0, sizeof(struct lh_entry));
+			break;
+		}
+	}
+	if(t->table == NULL)
+		t->table = (struct lh_entry*)calloc(size, sizeof(struct lh_entry));
 	if(!t->table) lh_abort("lh_table_new: calloc failed\n");
 	t->free_fn = free_fn;
 	t->hash_fn = hash_fn;
@@ -531,6 +543,15 @@ void lh_table_free(struct lh_table *t)
 	for(c = t->head; c != NULL; c = c->next) {
 		if(t->free_fn) {
 			t->free_fn(c);
+		}
+	}
+	if(t->size == JSON_OBJECT_DEF_HASH_ENTRIES) {
+		for(int i = 0 ; i < MAX_REUSE_TABLE_ENTRY ; ++i) {
+			if(toReuse_table_entry[i] == NULL) { // TODO: NOT thread safe!
+				toReuse_table_entry[i] = t->table;
+				t->table = NULL;
+				break;
+			}
 		}
 	}
 	free(t->table);
