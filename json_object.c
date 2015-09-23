@@ -174,6 +174,8 @@ int json_object_put(struct json_object *jso)
 
 
 /* generic object construction and destruction parts */
+#define MAX_REUSE 50
+static json_object *toReuse_object[MAX_REUSE]; /* buffer to cache last deleted */
 
 static void json_object_generic_delete(struct json_object* jso)
 {
@@ -183,16 +185,33 @@ static void json_object_generic_delete(struct json_object* jso)
 	lh_table_delete(json_object_table, jso);
 #endif /* REFCOUNT_DEBUG */
 	printbuf_free(jso->_pb);
+	for(int i = 0 ; i < MAX_REUSE ; ++i) {
+		if(toReuse_object[i] == NULL) { // TODO: NOT thread safe!
+			toReuse_object[i] = jso;
+			return;
+		}
+	}
+	/* cache full */
 	free(jso);
 }
 
 static struct json_object* json_object_new(enum json_type o_type)
 {
-	struct json_object *jso;
+	struct json_object *jso = NULL;
 
-	jso = (struct json_object*)calloc(sizeof(struct json_object), 1);
-	if (!jso)
-		return NULL;
+	for(int i = 0 ; i < MAX_REUSE ; ++i) {
+		if(toReuse_object[i] != NULL) { // TODO: NOT thread safe!
+			jso = toReuse_object[i];
+			toReuse_object[i] = NULL;
+			memset(jso, 0 , sizeof(struct json_object));
+			break;
+		}
+	}
+	if(jso == NULL) {
+		jso = (struct json_object*)calloc(sizeof(struct json_object), 1);
+		if (!jso)
+			return NULL;
+	}
 	jso->o_type = o_type;
 	jso->_ref_count = 1;
 	jso->_delete = &json_object_generic_delete;
