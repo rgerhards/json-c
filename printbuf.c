@@ -77,7 +77,7 @@ static int printbuf_extend(struct printbuf *p, int min_size)
 	return 0;
 }
 
-int printbuf_memappend(struct printbuf *p, const char *buf, int size)
+void printbuf_memappend(struct printbuf *p, const char *buf, int size)
 {
   if (p->size <= p->bpos + size + 1) {
     if (printbuf_extend(p, p->bpos + size + 1) < 0)
@@ -86,7 +86,6 @@ int printbuf_memappend(struct printbuf *p, const char *buf, int size)
   memcpy(p->buf + p->bpos, buf, size);
   p->bpos += size;
   p->buf[p->bpos]= '\0';
-  return size;
 }
 
 int printbuf_memset(struct printbuf *pb, int offset, int charvalue, int len)

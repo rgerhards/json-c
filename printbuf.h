@@ -36,7 +36,7 @@ printbuf_new(void);
  * Your code should not use printbuf_memappend directly--use
  * printbuf_memappend_fast instead.
  */
-extern int
+extern void
 printbuf_memappend(struct printbuf *p, const char *buf, int size);
 
 #define printbuf_memappend_fast(p, bufptr, bufsize)          \
